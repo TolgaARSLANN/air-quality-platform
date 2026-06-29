@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AirWatch — Hava Kalitesi Platformu</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080c14;
+      --surface:   #0f1623;
+      --surface2:  #151e2e;
+      --border:    rgba(255,255,255,0.07);
+      --text:      #e8edf5;
+      --muted:     #64748b;
+      --accent:    #38bdf8;
+      --accent2:   #0ea5e9;
+
+      /* AQI renk skalası */
+      --aqi-good:        #22c55e;
+      --aqi-moderate:    #eab308;
+      --aqi-sensitive:   #f97316;
+      --aqi-unhealthy:   #ef4444;
+      --aqi-very:        #a855f7;
+      --aqi-hazardous:   #dc2626;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+    .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .logo span { color: var(--accent); }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 99px;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--aqi-good);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── Layout ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+    .card-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 1rem; }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    .pollutant-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 1.25rem 0;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent2);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.01em;
+    }
+    .btn:hover:not(:disabled) { background: var(--accent); }
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Right Column ── */
+    .right-col { display: flex; flex-direction: column; gap: 1.5rem; }
+
+    /* ── AQI Gauge ── */
+    .aqi-hero {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      padding: 1.75rem;
+    }
+    .aqi-circle {
+      width: 110px; height: 110px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid;
+      flex-shrink: 0;
+      transition: all 0.4s ease;
+    }
+    .aqi-circle .aqi-num {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .aqi-circle .aqi-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .aqi-info { flex: 1; }
+    .aqi-category-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      border: 1px solid;
+    }
+    .aqi-health {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .aqi-city {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    /* ── Scale Bar ── */
+    .scale-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right,
+        var(--aqi-good) 0%,
+        var(--aqi-moderate) 20%,
+        var(--aqi-sensitive) 40%,
+        var(--aqi-unhealthy) 60%,
+        var(--aqi-very) 80%,
+        var(--aqi-hazardous) 100%
+      );
+      position: relative;
+      margin: 0.5rem 0;
+    }
+    .scale-marker {
+      position: absolute;
+      top: -3px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid;
+      transform: translateX(-50%);
+      transition: left 0.4s ease;
+    }
+    .scale-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+    .stat-item { text-align: center; }
+    .stat-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .stat-key {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .empty-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+    .empty-sub { font-size: 0.82rem; line-height: 1.5; }
+
+    /* ── Error ── */
+    .error-box {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: #fca5a5;
+    }
+
+    /* ── Loading ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .aqi-hero { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const API_BASE = "http://127.0.0.1:8000";
+
+function getAqiColor(aqi) {
+  if (aqi <= 50)  return "#22c55e";
+  if (aqi <= 100) return "#eab308";
+  if (aqi <= 150) return "#f97316";
+  if (aqi <= 200) return "#ef4444";
+  if (aqi <= 300) return "#a855f7";
+  return "#dc2626";
+}
+
+function getScalePercent(aqi) {
+  return Math.min((aqi / 400) * 100, 100);
+}
+
+function App() {
+  const [form, setForm] = React.useState({
+    country: "", city: "",
+    co_aqi_value: "", ozone_aqi_value: "",
+    no2_aqi_value: "", pm25_aqi_value: "",
+  });
+  const [result, setResult]   = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError]     = React.useState(null);
+  const [apiOk, setApiOk]     = React.useState(false);
+
+  React.useEffect(() => {
+    fetch(`${API_BASE}/health`)
+      .then(r => r.json())
+      .then(d => setApiOk(d.model_loaded))
+      .catch(() => setApiOk(false));
+  }, []);
+
+  const handleChange = e => {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    setError(null);
+  };
+
+  const handleSubmit = async () => {
+    const { country, city, co_aqi_value, ozone_aqi_value, no2_aqi_value, pm25_aqi_value } = form;
+    if (!country || !city || !co_aqi_value || !ozone_aqi_value || !no2_aqi_value || !pm25_aqi_value) {
+      setError("Lütfen tüm alanları doldurun."); return;
+    }
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/predict-aqi`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          country, city,
+          co_aqi_value:    parseFloat(co_aqi_value),
+          ozone_aqi_value: parseFloat(ozone_aqi_value),
+          no2_aqi_value:   parseFloat(no2_aqi_value),
+          pm25_aqi_value:  parseFloat(pm25_aqi_value),
+        }),
+      });
+      if (!res.ok) throw new Error(`Sunucu hatası: ${res.status}`);
+      const data = await res.json();
+      setResult(data);
+    } catch (err) {
+      setError("API'ye bağlanılamadı. Sunucunun çalıştığından emin olun.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const aqiColor = result ? getAqiColor(result.predicted_aqi) : "#38bdf8";
+  const scalePercent = result ? getScalePercent(result.predicted_aqi) : 0;
+
+  return (
+    <>
+      <header>
+        <div className="logo">Air<span>Watch</span></div>
+        <div className="status-pill">
+          <div className="status-dot" style={{ background: apiOk ? "#22c55e" : "#ef4444" }} />
+          {apiOk ? "Model aktif" : "API bağlantısı yok"}
+        </div>
+      </header>
+
+      <main>
+        {/* ── Sol: Form ── */}
+        <div className="card">
+          <div className="card-title">Konum</div>
+          <div className="form-group">
+            <label>Ülke</label>
+            <input name="country" placeholder="örn. Turkey" value={form.country} onChange={handleChange} />
+          </div>
+          <div className="form-group">
+            <label>Şehir</label>
+            <input name="city" placeholder="örn. Istanbul" value={form.city} onChange={handleChange} />
+          </div>
+
+          <div className="divider" />
+          <div className="card-title">Kirletici Değerleri</div>
+
+          <div className="pollutant-grid">
+            <div className="form-group">
+              <label>PM2.5 AQI</label>
+              <input name="pm25_aqi_value" type="number" placeholder="55" value={form.pm25_aqi_value} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>Ozon AQI</label>
+              <input name="ozone_aqi_value" type="number" placeholder="32" value={form.ozone_aqi_value} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>CO AQI</label>
+              <input name="co_aqi_value" type="number" placeholder="1.2" value={form.co_aqi_value} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>NO₂ AQI</label>
+              <input name="no2_aqi_value" type="number" placeholder="18" value={form.no2_aqi_value} onChange={handleChange} />
+            </div>
+          </div>
+
+          {error && <div className="error-box" style={{ marginBottom: "1rem" }}>{error}</div>}
+
+          <button className="btn" onClick={handleSubmit} disabled={loading || !apiOk}>
+            {loading ? <><span className="spinner" />Hesaplanıyor...</> : "AQI Tahminini Hesapla"}
+          </button>
+        </div>
+
+        {/* ── Sağ: Sonuçlar ── */}
+        <div className="right-col">
+          {/* AQI Sonuç Kartı */}
+          <div className="card">
+            {result ? (
+              <div className="aqi-hero">
+                <div className="aqi-circle" style={{ borderColor: aqiColor, color: aqiColor }}>
+                  <span className="aqi-num">{Math.round(result.predicted_aqi)}</span>
+                  <span className="aqi-label">AQI</span>
+                </div>
+                <div className="aqi-info">
+                  <div className="aqi-city">{result.city}, {result.country}</div>
+                  <div className="aqi-category-badge" style={{
+                    color: aqiColor,
+                    borderColor: `${aqiColor}40`,
+                    background: `${aqiColor}15`
+                  }}>
+                    {result.aqi_category}
+                  </div>
+                  <div className="aqi-health">{result.health_tip}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-icon">🌍</div>
+                <div className="empty-title">Henüz analiz yapılmadı</div>
+                <div className="empty-sub">Sol taraftaki formu doldurup<br />"AQI Tahminini Hesapla" butonuna bas.</div>
+              </div>
+            )}
+          </div>
+
+          {/* AQI Ölçek */}
+          <div className="card">
+            <div className="card-title">AQI Ölçeği</div>
+            <div className="scale-bar">
+              {result && (
+                <div className="scale-marker"
+                  style={{ left: `${scalePercent}%`, borderColor: aqiColor }} />
+              )}
+            </div>
+            <div className="scale-labels">
+              <span>0 İyi</span>
+              <span>50</span>
+              <span>100</span>
+              <span>150</span>
+              <span>200</span>
+              <span>300+</span>
+            </div>
+          </div>
+
+          {/* Kirletici Detayları */}
+          {result && (
+            <div className="card">
+              <div className="card-title">Kirletici Dağılımı</div>
+              <div className="stats-grid">
+                {[
+                  { key: "PM2.5", val: form.pm25_aqi_value },
+                  { key: "Ozon",  val: form.ozone_aqi_value },
+                  { key: "CO",    val: form.co_aqi_value },
+                  { key: "NO₂",   val: form.no2_aqi_value },
+                ].map(s => (
+                  <div key={s.key} className="stat-item">
+                    <div className="stat-val">{parseFloat(s.val).toFixed(1)}</div>
+                    <div className="stat-key">{s.key}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

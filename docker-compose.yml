@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+
+  # ─────────────────────────────────────────
+  # FastAPI Servisi
+  # ─────────────────────────────────────────
+  api:
+    build: .
+    container_name: air_quality_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://airuser:airpass@db:5432/airquality
+    volumes:
+      - .:/app                  # Kod değişikliklerini anında yansıt
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # PostgreSQL Servisi
+  # ─────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: air_quality_db
+    environment:
+      POSTGRES_USER:     airuser
+      POSTGRES_PASSWORD: airpass
+      POSTGRES_DB:       airquality
+    ports:
+      - "5432:5432"             # DBeaver bağlantısı için
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # Veri kalıcı olsun
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airuser -d airquality"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
